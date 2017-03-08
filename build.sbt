@@ -12,6 +12,8 @@ resolvers += "jitpack" at "https://jitpack.io"
 
 libraryDependencies ++= Seq(
   "org.scaldi" % "scaldi_2.12" % "0.5.8",
+  "org.webjars.bower" % "phaser" % "2.4.4",
+  "com.github.webjars" % "webjars-play" % "v2.6.0-M1",
   "org.scalatest" %% "scalatest" % "3.0.1" % "test",
   "org.scalacheck" %% "scalacheck" % "1.13.4" % "test"
 )
