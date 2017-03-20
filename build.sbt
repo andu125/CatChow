@@ -15,6 +15,8 @@ libraryDependencies ++= Seq(
   "org.webjars.bower" % "phaser" % "2.4.4",
   "com.github.webjars" % "webjars-play" % "v2.6.0-M1",
   "org.scalaz" % "scalaz-core_2.12" % "7.3.0-M10",
+  "com.github.nscala-time" %% "nscala-time" % "2.16.0",
+  "io.reactivex" %% "rxscala" % "0.26.5",
   "org.scalatest" %% "scalatest" % "3.0.1" % "test",
   "org.scalacheck" %% "scalacheck" % "1.13.4" % "test"
 )

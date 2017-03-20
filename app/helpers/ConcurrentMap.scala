@@ -6,7 +6,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import helpers.ConcurrentMap.{Action, SimpleMap}
 
 object ConcurrentMap {
-  trait SimpleMap[Id,Val] {
+  trait SimpleMap[Id,Val] extends Traversable[(Id,Val)]{
     /** Gets a key from a map
       *  @param aKey map's key
       *  @return Some(Value) if map contains aKey or None otherwise
@@ -42,7 +42,7 @@ object ConcurrentMap {
     new ConcurrentMap[Id,Val](aMap,aContext)
 }
 
-class ConcurrentMap[Id,Val](aMap:SimpleMap[Id,Val], aContext: ExecutionContext) {
+class ConcurrentMap[Id,Val](protected val aMap:SimpleMap[Id,Val], protected val aContext: ExecutionContext) {
   type Result[T] = Action[Id, Val, T]
 
   def run[T](aAction: Result[T]): Future[T] = Future {
