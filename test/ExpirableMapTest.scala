@@ -19,12 +19,12 @@ class ExpirableMapTest extends MapTest {
   override def Concurrent = ExpirableMap(new HashMap[Id,Val] with MapType)
 
   "Stored value" should "expire" in {
-    val mVal = (DateTime.now + 5.seconds,"some")
+    val lVal = (DateTime.now + 5.seconds,"some")
 
     for{
      x <-mMap.run {
        for {
-         _     <- put(mKey, mVal)
+         _     <- put(mKey, lVal)
          value <- get(mKey)
        } yield value
      }
@@ -34,16 +34,40 @@ class ExpirableMapTest extends MapTest {
         value <- get(mKey)
       } yield value
      }
-    } yield {assert(x == Some(mVal) && y==None)}
+    } yield {assert(x == Some(lVal) && y==None)}
   }
 
-  "Stored value" should "not expire" in {
-    val mVal = (DateTime.now + 5.seconds,"some")
+  "Two stored values" should "expire" in {
+    val lVal  = (DateTime.now + 5.seconds,"some")
+    val lKey1 = "Key1"
+    val lKey2 = "Key2"
 
     for{
       x <-mMap.run {
         for {
-          _     <- put(mKey, mVal)
+          _      <- put(lKey1, lVal)
+          _      <- put(lKey2, lVal)
+          value1 <- get(lKey1)
+          value2 <- get(lKey2)
+        } yield (value1, value2)
+      }
+      _ <-Future {Thread.sleep(6000)}
+      y <-Concurrent.run {
+        for {
+          value1 <- get(lKey1)
+          value2 <- get(lKey2)
+        } yield (value1, value2)
+      }
+    } yield {assert(x == (Some(lVal),Some(lVal)) && y==(None,None))}
+  }
+
+  "Stored value" should "not expire" in {
+    val lVal = (DateTime.now + 5.seconds,"some")
+
+    for{
+      x <-mMap.run {
+        for {
+          _     <- put(mKey, lVal)
           value <- get(mKey)
         } yield value
       }
@@ -53,34 +77,34 @@ class ExpirableMapTest extends MapTest {
           value <- get(mKey)
         } yield value
       }
-    } yield {assert(x == Some(mVal) && y==Some(mVal))}
+    } yield {assert(x == Some(lVal) && y==Some(lVal))}
   }
 
   "Only one stored value" should "expire" in {
-    val mKey1 = "Key1"
-    val mVal1 = (DateTime.now + 10.seconds,"some1")
-    val mKey2 = "Key2"
-    val mVal2 = (DateTime.now + 2.seconds,"some2")
+    val lKey1 = "Key1"
+    val lVal1 = (DateTime.now + 10.seconds,"some1")
+    val lKey2 = "Key2"
+    val lVal2 = (DateTime.now + 2.seconds,"some2")
 
     for{
       _ <-mMap.run {
         for {
-          omit <- put(mKey1, mVal1)
+          omit <- put(lKey1, lVal1)
         } yield omit
       }
       _ <-Future {Thread.sleep(1000)}
       _ <-mMap.run {
         for {
-          omit <- put(mKey2, mVal2)
+          omit <- put(lKey2, lVal2)
         } yield omit
       }
       _     <-Future {Thread.sleep(3000)}
       (x,y) <-mMap.run {
         for {
-          value1 <- get(mKey1)
-          value2 <- get(mKey2)
+          value1 <- get(lKey1)
+          value2 <- get(lKey2)
         } yield (value1, value2)
       }
-    } yield {assert(x==Some(mVal1) && y==None)}
+    } yield {assert(x==Some(lVal1) && y==None)}
   }
 }
