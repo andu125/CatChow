@@ -8,7 +8,8 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
 import scala.concurrent.duration.Duration.Zero
 import rx.lang.scala.Observable
-import rx.lang.scala.subjects.PublishSubject
+import rx.lang.scala.Observable.{timer,using,just,never}
+import rx.lang.scala.subjects.BehaviorSubject
 import rx.lang.scala.schedulers.ExecutionContextScheduler
 import com.github.nscala_time.time.Implicits.richReadableInstant
 import helpers.ConcurrentMap._
@@ -23,22 +24,25 @@ class ExpirableMap[Id,Val](
   aContext: ExecutionContext
 ) extends ConcurrentMap[Id,(DateTime,Val)](aMap, aContext) with AutoCloseable {
 
+  implicit def toDuration(aTime: DateTime) = {
+    if(DateTime.now >= aTime) Zero
+    else Try{(aTime.getMillis - DateTime.now.getMillis) millis}.getOrElse(365 days)
+  }
+
   protected val mMaxTime      = new DateTime(Long.MaxValue)
-  protected val mSubject      = PublishSubject[DateTime]()
+  protected val mSubject      = BehaviorSubject[DateTime](mMaxTime)
   protected val mScheduler    = ExecutionContextScheduler(aContext)
   protected val mSubscription =
-    mSubject.scan((true,mMaxTime)){
-      case ((_,y),z) if z < y => (true,z)
-      case ((_,x),_)          => (false,x)
-    }.filter{_._1}
-     .map{_._2}
-     .switchMap{x=>
-        Observable
-          .timer{toDuration(x)}
-          .map{_=>x}
-    }.subscribeOn(mScheduler)
-     .observeOn(mScheduler)
-     .subscribe{x=>
+    mSubject
+      .slidingBuffer(2,1)
+      .scan(Observable.empty: Observable[DateTime]){
+        case (o,h1+:h2+:_) if h2 != h1 => timer{h2}.merge{never}.map{_=>h2}.replay.refCount
+        case (o,_)                     => o
+     }.switchMap{x=>using(x.subscribe)(_=>just(x),_.unsubscribe)}
+      .switchMap{x=>x}
+      .subscribeOn(mScheduler)
+      .observeOn(mScheduler)
+      .subscribe{x=>
         aMap.filterNot{_._2._1 > x}
             .foldLeft(().point[Result]){
               case (acc,(id,_))=> for {
@@ -47,11 +51,6 @@ class ExpirableMap[Id,Val](
               } yield ()
             } |> run
       }
-
-  def toDuration(aTime: DateTime) = {
-    if(DateTime.now >= aTime) Zero
-    else Try{(aTime.getMillis - DateTime.now.getMillis) millis}.getOrElse(365 days)
-  }
 
   override def run[T](aAction: Result[T]): Future[T] = super.run(aAction).andThen{
     case f@Failure(_) => f
